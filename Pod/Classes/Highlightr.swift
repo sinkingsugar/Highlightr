@@ -44,10 +44,11 @@ open class Highlightr
      Default init method.
 
      - parameter highlightPath: The path to `highlight.min.js`. Defaults to `Highlightr.framework/highlight.min.js`
+     - parameter customLanguages: Array of custom language names to register at initialization
 
      - returns: Highlightr instance.
      */
-    public init?(highlightPath: String? = nil)
+    public init?(highlightPath: String? = nil, customLanguages: [String] = [])
     {
         let jsContext = JSContext()!
         let window = JSValue(newObjectIn: jsContext)
@@ -68,6 +69,14 @@ open class Highlightr
         guard let hljs = jsContext.objectForKeyedSubscript("hljs") else { return nil }
 
         self.hljs = hljs
+        
+        // Register Shards language by default
+        _ = registerLanguage(languageName: "shards", languageDefinition: "shards.min")
+        
+        // Register additional custom languages if provided
+        for language in customLanguages {
+            _ = registerLanguage(languageName: language, languageDefinition: language)
+        }
         
         guard setTheme(to: "pojoaque") else
         {
@@ -176,6 +185,31 @@ open class Highlightr
     {
         let res = hljs.invokeMethod("listLanguages", withArguments: [])
         return res!.toArray() as! [String]
+    }
+    
+    /**
+     Register a custom language.
+     
+     - parameter languageName: The name of the language.
+     - parameter languageDefinition: The path to the JavaScript file containing the language definition.
+     
+     - returns: true if the language was registered successfully, false otherwise.
+     */
+    @discardableResult
+    open func registerLanguage(languageName: String, languageDefinition: String) -> Bool
+    {
+        guard let jsPath = bundle.path(forResource: languageDefinition, ofType: "js") else {
+            return false
+        }
+        
+        do {
+            let jsCode = try String(contentsOfFile: jsPath)
+            let _ = hljs.context.evaluateScript(jsCode)
+            return true
+        } catch {
+            print("Error loading language definition: \(error)")
+            return false
+        }
     }
     
     /**
